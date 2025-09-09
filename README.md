@@ -252,3 +252,21 @@ Start-Service StateRepository,AppReadiness -ErrorAction SilentlyContinue
 User Profile Service: Eventos 1508/1509/1511/1515/1530 (Registro Aplicación).
 
 RDP/LSM: LocalSessionManager/Operational y RemoteConnectionManager/Operational si la sesión se queda en “Esperando a Configuración de Escritorio remoto”.
+
+## PASOS EXTRAS
+
+Además, se ha utilizado esta herramienta para limpiar valores de la siguiente clave del registro de Windows (HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Notifications):
+https://github.com/Lazy-256/clnotifications 
+
+** También está el fichero .zip de la rama master del proyecto origen, subido en mi proyecto **
+
+Descargar el proyecto (https://github.com/Lazy-256/clnotifications/archive/refs/heads/master.zip) y copiar el .ZIP a la máquina a arreglar.
+
+Descomprimir el ZIP y la carpeta "clnotifications.zip" > entrar a la carpeta clnotifications y lanzar un "cmd.exe" desde la barra superior del explorador de Windows donde estamos.
+
+Ahora, ejecutar:
+
+```powershell
+.\clnotifications.exe -cleanup
+```
+
