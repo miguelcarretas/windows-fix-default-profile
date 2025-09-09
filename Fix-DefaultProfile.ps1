@@ -1,7 +1,8 @@
 <# 
-  Fix-DefaultProfile.ps1 (v1.4)
-  - Usa carpeta de montaje temporal y única (no C:\WimMount).
-  - Si DISM /Mount-Image falla, cae a DISM /Apply-Image (fallback).
+  Script Name: Fix-DefaultProfile.ps1 (v1.4)
+  Author: Miguel Carretas Perulero
+  Date: 09/09/2025
+  Version: v1.0.0
 #>
 
 [CmdletBinding()]
