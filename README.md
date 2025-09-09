@@ -260,17 +260,13 @@ https://github.com/Lazy-256/clnotifications
 
 > **También está la carpeta "clnotifications-master" en la raíz de mi proyecto, por lo que al descargar este proyecto, se te descargará también dicha herramienta.**
 
-Descargar el proyecto (https://github.com/Lazy-256/clnotifications/archive/refs/heads/master.zip) y copiar el .ZIP a la máquina a arreglar.
-
-Descomprimir el ZIP y la carpeta "clnotifications.zip" > entrar a la carpeta clnotifications y lanzar un "cmd.exe" desde la barra superior del explorador de Windows donde estamos.
-
-Ahora, ejecutar:
-
+- Descargar el proyecto (https://github.com/Lazy-256/clnotifications/archive/refs/heads/master.zip) y copiar el .ZIP a la máquina a arreglar.
+- Descomprimir el ZIP y la carpeta "clnotifications.zip".
+- Entrar a la carpeta clnotifications y lanzar un "cmd.exe" desde la barra superior del explorador de Windows donde estamos.
+- Ejecutar:
 ```powershell
 .\clnotifications.exe -cleanup
 ```
-
-### Comprobaciones finales
 - Reiniciar la máquina por completo y esperar (el proceso puede ser bastante lento).
 - Crear un usuario virgen y verificar que el menú de Inicio se abre correctamente.
 - Chequear que también funciona para usuarios existentes previamente creados.
