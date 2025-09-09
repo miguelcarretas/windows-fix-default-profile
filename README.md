@@ -188,7 +188,7 @@ PowerShell -ExecutionPolicy Bypass -File "C:\Users\YOUR_USER_HERE\Desktop\Fix-De
 
 ---
 
-## Apéndice — Reset de **StateRepository** (Modo Seguro)
+## Reset de **StateRepository** (Modo Seguro)
 
 > Úsalo solo si, tras el script, un **usuario virgen** aún no abre **Inicio**.
 
@@ -255,10 +255,10 @@ RDP/LSM: LocalSessionManager/Operational y RemoteConnectionManager/Operational s
 
 ## PASOS EXTRAS
 
-Además, se ha utilizado esta herramienta para limpiar valores de la siguiente clave del registro de Windows (HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Notifications):
+Además, se ha utilizado esta herramienta para limpiar valores de la siguiente clave del registro de Windows `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Notifications`:
 https://github.com/Lazy-256/clnotifications 
 
-** También está la carpeta "clnotifications-master" en la raíz de mi proyecto, por lo que al descargar este proyecto, se te descargará también dicha herramienta. **
+> **También está la carpeta "clnotifications-master" en la raíz de mi proyecto, por lo que al descargar este proyecto, se te descargará también dicha herramienta.**
 
 Descargar el proyecto (https://github.com/Lazy-256/clnotifications/archive/refs/heads/master.zip) y copiar el .ZIP a la máquina a arreglar.
 
