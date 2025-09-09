@@ -9,3 +9,10 @@ PowerShell -ExecutionPolicy Bypass -File "C:\Users\usertest\Desktop\Fix-DefaultP
 ```powershell
 PowerShell -ExecutionPolicy Bypass -File "C:\Users\usertest\Desktop\Fix-DefaultProfile.ps1" -CreateTestUser
 ```
+
+### To search for events related to user profile failures:
+```powershell
+$ids = 1508,1509,1511,1515,1530
+Get-WinEvent -FilterHashtable @{ LogName='Application'; Id=$ids } -MaxEvents 30 |
+  Select TimeCreated,Id,Message | Format-Table -Wrap
+```
