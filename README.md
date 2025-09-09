@@ -258,7 +258,7 @@ RDP/LSM: LocalSessionManager/Operational y RemoteConnectionManager/Operational s
 Además, se ha utilizado esta herramienta para limpiar valores de la siguiente clave del registro de Windows (HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Notifications):
 https://github.com/Lazy-256/clnotifications 
 
-** También está el fichero .zip de la rama master del proyecto origen, subido en mi proyecto **
+** También está la carpeta "clnotifications-master" en la raíz de mi proyecto, por lo que al descargar este proyecto, se te descargará también dicha herramienta. **
 
 Descargar el proyecto (https://github.com/Lazy-256/clnotifications/archive/refs/heads/master.zip) y copiar el .ZIP a la máquina a arreglar.
 
