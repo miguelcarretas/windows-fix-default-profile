@@ -270,3 +270,7 @@ Ahora, ejecutar:
 .\clnotifications.exe -cleanup
 ```
 
+### Comprobaciones finales
+- Reiniciar la máquina por completo y esperar (el proceso puede ser bastante lento).
+- Crear un usuario virgen y verificar que el menú de Inicio se abre correctamente.
+- Chequear que también funciona para usuarios existentes previamente creados.
