@@ -160,10 +160,10 @@ El script:
 ## Cómo ejecutarlo
 
 ```powershell
-PowerShell -ExecutionPolicy Bypass -File "C:\Users\YOUR_USER_HERE\Desktop\Fix-DefaultProfile.ps1"
+PowerShell -ExecutionPolicy Bypass -File "C:\Ruta\Fix-DefaultProfile.ps1"
 
 # Opcional: que cree automáticamente un usuario de prueba
-PowerShell -ExecutionPolicy Bypass -File "C:\Users\YOUR_USER_HERE\Desktop\Fix-DefaultProfile.ps1" -CreateTestUser
+PowerShell -ExecutionPolicy Bypass -File "C:\Ruta\Fix-DefaultProfile.ps1" -CreateTestUser
 ```
 
 ---
