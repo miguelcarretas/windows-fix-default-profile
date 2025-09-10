@@ -113,7 +113,7 @@ El script:
 
   > Ojo: las **comillas** son necesarias por el `;` en PowerShell.
 
-* **Plan B (si falla A con 0x800f0954/0x800f081f):** **bypass WSUS** temporal (`UseWUServer=0`), reinicia `wuauserv`, ejecuta `DISM /RestoreHealth` y **restaura** la clave.
+* **Plan B (si falla A con 0x800f0954/0x800f081f):** **bypass WSUS** temporal (`UseWUServer=0`), reinicia `wuauserv`, ejecuta `dism.exe /Online /Cleanup-Image /RestoreHealth` y **restaura** la clave.
 
 * Ejecuta `sfc /scannow`.
 
