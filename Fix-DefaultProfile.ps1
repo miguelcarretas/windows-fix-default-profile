@@ -1,8 +1,8 @@
-<# 
-  Script Name : Fix-DefaultProfile.ps1 (v1.5)
+<#
+  Script Name : Fix-DefaultProfile.ps1 (v1.6)
   Author      : Miguel Carretas Perulero
-  Date        : 09/09/2025
-  Version     : v1.5
+  Date        : 10/09/2025
+  Version     : v1.6
   Purpose     : Reponer C:\Users\Default desde el DVD (install.wim/esd),
                 reparar imagen con DISM usando SIEMPRE el DVD como source (y
                 fallback a WU desactivando WSUS temporalmente), re-registrar
@@ -35,40 +35,83 @@ function Assert-Admin {
 }
 Assert-Admin
 
+# --- DISM helpers ---
+
 function Invoke-DismRepairOffline {
   param([Parameter(Mandatory=$true)][string]$WindowsRoot)
   Write-Host "    DISM (offline) usando $WindowsRoot ..." -ForegroundColor Yellow
-  dism /Online /Cleanup-Image /RestoreHealth /Source:"$WindowsRoot;$WindowsRoot\WinSxS" /LimitAccess
+  & dism /Online /Cleanup-Image /RestoreHealth "/Source:$WindowsRoot;$WindowsRoot\WinSxS" /LimitAccess
   return $LASTEXITCODE
 }
 
+function Invoke-DismRepairWithWimIndex {
+  param(
+    [Parameter(Mandatory=$true)][string]$ImageFile,
+    [Parameter(Mandatory=$true)][int]$Index
+  )
+  $leaf = (Split-Path $ImageFile -Leaf).ToLower()
+
+  # PS 5.1 no soporta operador ternario -> usar if/else
+  $kind = 'WIM'
+  if ($leaf -like '*.esd') {
+    $kind = 'ESD'
+  }
+
+  $srcArg = "/Source:{0}:{1}:{2}" -f $kind, $ImageFile, $Index
+  Write-Host ("    DISM con {0} por índice ({1})..." -f $kind, $srcArg) -ForegroundColor Yellow
+  & dism /Online /Cleanup-Image /RestoreHealth $srcArg /LimitAccess
+  return $LASTEXITCODE
+}
+
+
 function Invoke-DismRepairWithWUBypass {
   Write-Host "    DISM (fallback) usando Windows Update y bypass de WSUS temporal..." -ForegroundColor Yellow
-  $auKey = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
-  $old = $null
+
+  $wuRoot = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
+  $auKey  = Join-Path $wuRoot 'AU'
+  $hadWU  = Test-Path $wuRoot
+  $hadAU  = Test-Path $auKey
+  $orig   = $null
+
   try {
-    if (Test-Path $auKey) { $old = (Get-ItemProperty -Path $auKey -Name UseWUServer -ErrorAction SilentlyContinue).UseWUServer }
-    else { New-Item -Path $auKey -Force | Out-Null }
+    if (-not $hadWU) { New-Item -Path $wuRoot -Force | Out-Null }
+    if (-not $hadAU) { New-Item -Path $auKey  -Force | Out-Null }
+
+    $prop = Get-ItemProperty -Path $auKey -ErrorAction SilentlyContinue
+    if ($prop -and ($prop.PSObject.Properties.Name -contains 'UseWUServer')) {
+      $orig = $prop.UseWUServer
+    }
+
     New-ItemProperty -Path $auKey -Name UseWUServer -PropertyType DWord -Value 0 -Force | Out-Null
-  } catch { Write-Warning ("No se pudo preparar el bypass de WSUS: {0}" -f $_.Exception.Message) }
 
-  try { net stop wuauserv | Out-Null } catch {}
-  try { net start wuauserv | Out-Null } catch {}
+    foreach ($svc in 'wuauserv','bits') {
+      try { Stop-Service $svc -Force -ErrorAction SilentlyContinue } catch {}
+      try { Start-Service $svc -ErrorAction SilentlyContinue } catch {}
+    }
 
-  dism /Online /Cleanup-Image /RestoreHealth
-  $rc = $LASTEXITCODE
+    & dism /Online /Cleanup-Image /RestoreHealth
+    $rc = $LASTEXITCODE
+  } catch {
+    Write-Warning ("    No se pudo preparar/ejecutar DISM con WU: {0}" -f $_.Exception.Message)
+    $rc = 1
+  }
 
   # Restaurar WSUS a su estado anterior
   try {
-    if ($null -eq $old) {
-      Remove-ItemProperty -Path $auKey -Name UseWUServer -ErrorAction SilentlyContinue
+    if ($orig -ne $null) {
+      Set-ItemProperty -Path $auKey -Name UseWUServer -Value $orig -Type DWord -ErrorAction SilentlyContinue
     } else {
-      Set-ItemProperty -Path $auKey -Name UseWUServer -Value $old -ErrorAction SilentlyContinue
+      Remove-ItemProperty -Path $auKey -Name UseWUServer -ErrorAction SilentlyContinue
     }
-    net stop wuauserv | Out-Null
-    net start wuauserv | Out-Null
+    if (-not $hadAU) { Remove-Item -Path $auKey -Recurse -Force -ErrorAction SilentlyContinue }
+    if (-not $hadWU) { Remove-Item -Path $wuRoot -Recurse -Force -ErrorAction SilentlyContinue }
+
+    foreach ($svc in 'wuauserv','bits') {
+      try { Stop-Service $svc -Force -ErrorAction SilentlyContinue } catch {}
+      try { Start-Service $svc -ErrorAction SilentlyContinue } catch {}
+    }
   } catch {
-    Write-Warning ("No se pudo restaurar la configuración de WSUS: {0}" -f $_.Exception.Message)
+    Write-Warning ("    No se pudo restaurar la configuración de WSUS: {0}" -f $_.Exception.Message)
   }
 
   return $rc
@@ -124,23 +167,24 @@ Write-Host "==> Paso 3: intentar montar imagen en SOLO LECTURA..." -ForegroundCo
 New-Item -ItemType Directory -Path $MountDir -Force | Out-Null
 $mountedOk = $false
 try {
-  dism /Mount-Image /ImageFile:$src /Index:$index /MountDir:$MountDir /ReadOnly
+  & dism /Mount-Image /ImageFile:$src /Index:$index /MountDir:$MountDir /ReadOnly
   if ($LASTEXITCODE -eq 0) { $mountedOk = $true }
 } catch { }
 
 if ($mountedOk) {
-  $MountedDefault = Join-Path $MountDir 'Users\Default'
-  $WindowsRootForDism = Join-Path $MountDir 'Windows'
-  if (-not (Test-Path $MountedDefault)) { throw ("No existe {0} en la imagen montada." -f $MountedDefault) }
+  $MountedDefault      = Join-Path $MountDir 'Users\Default'
+  $WindowsRootForDism  = Join-Path $MountDir 'Windows'
+  if (-not (Test-Path $MountedDefault))     { throw ("No existe {0} en la imagen montada." -f $MountedDefault) }
+  if (-not (Test-Path $WindowsRootForDism)) { throw ("No existe {0} en la imagen montada." -f $WindowsRootForDism) }
   Write-Host "    Montaje OK."
 } else {
   Write-Warning "    El montaje ha fallado. Cambio a plan B: APPLY-IMAGE a un directorio temporal."
   New-Item -ItemType Directory -Path $ExtractDir -Force | Out-Null
-  dism /Apply-Image /ImageFile:$src /Index:$index /ApplyDir:$ExtractDir
+  & dism /Apply-Image /ImageFile:$src /Index:$index /ApplyDir:$ExtractDir
   if ($LASTEXITCODE -ne 0) { throw ("DISM /Apply-Image falló con código {0}" -f $LASTEXITCODE) }
-  $MountedDefault   = Join-Path $ExtractDir 'Users\Default'
-  $WindowsRootForDism = Join-Path $ExtractDir 'Windows'
-  if (-not (Test-Path $MountedDefault))   { throw ("No existe {0} en la extracción." -f $MountedDefault) }
+  $MountedDefault      = Join-Path $ExtractDir 'Users\Default'
+  $WindowsRootForDism  = Join-Path $ExtractDir 'Windows'
+  if (-not (Test-Path $MountedDefault))     { throw ("No existe {0} en la extracción." -f $MountedDefault) }
   if (-not (Test-Path $WindowsRootForDism)) { throw ("No existe {0} en la extracción." -f $WindowsRootForDism) }
 }
 
@@ -175,23 +219,44 @@ foreach ($svc in $services) {
 }
 
 Write-Host "==> Paso 7: DISM + SFC (usando SIEMPRE el DVD como Source; fallback WU si fuera necesario)..." -ForegroundColor Cyan
-$rcDism = Invoke-DismRepairOffline -WindowsRoot $WindowsRootForDism
-if ($rcDism -ne 0) {
-  Write-Warning ("DISM offline devolvió código {0}. Intentando fallback con Windows Update (bypass WSUS temporal)..." -f $rcDism)
-  $rcDism = Invoke-DismRepairWithWUBypass
-  if ($rcDism -ne 0) { Write-Warning ("DISM con WU devolvió código {0}. Revisa C:\Windows\Logs\DISM\dism.log" -f $rcDism) }
+$rcDism = 1
+try {
+  $rcDism = Invoke-DismRepairOffline -WindowsRoot $WindowsRootForDism
+} catch {
+  Write-Warning ("DISM offline lanzó excepción: {0}" -f $_.Exception.Message)
 }
-sfc /scannow
+
+if ($rcDism -ne 0) {
+  Write-Warning ("DISM offline devolvió código {0}. Probando con WIM/ESD por índice..." -f $rcDism)
+  try {
+    $rcDism = Invoke-DismRepairWithWimIndex -ImageFile $src -Index $index
+  } catch {
+    Write-Warning ("DISM con WIM/ESD por índice lanzó excepción: {0}" -f $_.Exception.Message)
+  }
+}
+
+if ($rcDism -ne 0) {
+  Write-Warning ("DISM con WIM/ESD devolvió código {0}. Intentando fallback con Windows Update..." -f $rcDism)
+  $rcDism = Invoke-DismRepairWithWUBypass
+  if ($rcDism -ne 0) {
+    Write-Warning ("DISM con WU devolvió código {0}. Revisa C:\Windows\Logs\DISM\dism.log" -f $rcDism)
+  }
+}
+
+Write-Host "    Ejecutando SFC /scannow..." -ForegroundColor Yellow
+& sfc /scannow
 
 Write-Host "==> Paso 8: Re-registrar componentes del shell presentes..." -ForegroundColor Cyan
 # En Server 2019 suele existir solo ShellExperienceHost. Registramos lo que haya.
 $sys = Join-Path $env:windir 'SystemApps'
 Get-ChildItem $sys -Directory | Where-Object { $_.Name -like 'Microsoft.Windows.*ExperienceHost*' } |
   ForEach-Object {
-    $m = Join-Path $_.FullName 'AppxManifest.xml'
+    $appDir = $_.FullName
+    $appName = $_.Name
+    $m = Join-Path $appDir 'AppxManifest.xml'
     if (Test-Path $m) {
       try { Add-AppxPackage -DisableDevelopmentMode -Register $m }
-      catch { Write-Warning ("Re-registro {0}: {1}" -f $_.Name, $_.Exception.Message) }
+      catch { Write-Warning ("Re-registro {0}: {1}" -f $appName, $_.Exception.Message) }
     }
   }
 Start-Service StateRepository,AppReadiness -ErrorAction SilentlyContinue
@@ -213,8 +278,7 @@ $keys = @(
 )
 foreach ($k in $keys) {
   foreach ($v in 'StartLayoutFile','LockedStartLayout') {
-    try { reg query $k /v $v | Out-Null; Write-Host ("      {0}\{1} DEFINIDO" -f $k,$v) }
-    catch { }
+    try { reg query $k /v $v | Out-Null; Write-Host ("      {0}\{1} DEFINIDO" -f $k,$v) } catch { }
   }
 }
 
@@ -247,7 +311,7 @@ if ($CreateTestUser) {
 }
 
 Write-Host "==> Paso 10: desmontar/limpiar temporales..." -ForegroundColor Cyan
-try { dism /Unmount-Image /MountDir:$MountDir /Discard | Out-Null } catch { }
+try { & dism /Unmount-Image /MountDir:$MountDir /Discard | Out-Null } catch { }
 try { Remove-Item $MountDir -Recurse -Force -ErrorAction SilentlyContinue } catch { }
 try { Remove-Item $ExtractDir -Recurse -Force -ErrorAction SilentlyContinue } catch { }
 
